@@ -144,9 +144,8 @@ sequenceDiagram
     Fast-->>U: Job status + results available
 ```
 
-## Enterprise-grade enhancements (Guide 8)
+## Enterprise-grade enhancements
 
-`guides/8_enterprise.md` walks through production hardening. Highlights:
 
 ### Scalability
 - **Lambda scaling**: tune memory/timeout, optionally set reserved concurrency for predictable capacity.
