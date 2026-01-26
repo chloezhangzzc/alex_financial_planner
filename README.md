@@ -18,10 +18,6 @@ The system is designed for production deployment on AWS: **Lambda**, **API Gatew
 
 ```
 alex/
-├── guides/              # Step-by-step guides (start here)
-│   ├── architecture.md
-│   ├── agent_architecture.md
-│   └── 1_permissions.md ... 8_enterprise.md
 ├── backend/             # Agent code + FastAPI API (multiple uv projects)
 ├── frontend/            # Next.js (Pages Router) + Clerk auth
 ├── terraform/           # Independent Terraform stacks by guide
