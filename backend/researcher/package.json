@@ -1,0 +1,10 @@
+{
+  "name": "alex-researcher",
+  "private": true,
+  "description": "Alex Researcher - Playwright MCP runtime dependencies",
+  "dependencies": {
+    "@playwright/mcp": "latest"
+  }
+}
+
+
