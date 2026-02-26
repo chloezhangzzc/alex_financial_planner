@@ -186,18 +186,6 @@ This starts:
 - Frontend: `http://localhost:3000` (or next available port)
 - Backend API: `http://localhost:8000` (`/docs` for OpenAPI)
 
-## Production deployment
-
-Follow the guides in order (each Terraform folder is independent):
-
-1. `guides/1_permissions.md` → `terraform/1_permissions` (if present)
-2. `guides/2_sagemaker.md` → `terraform/2_sagemaker`
-3. `guides/3_ingest.md` → `terraform/3_ingestion`
-4. `guides/4_researcher.md` → `terraform/4_researcher`
-5. `guides/5_database.md` → `terraform/5_database`
-6. `guides/6_agents.md` → `terraform/6_agents`
-7. `guides/7_frontend.md` → `terraform/7_frontend`
-8. `guides/8_enterprise.md` → `terraform/8_enterprise`
 
 ## Notes for pushing to GitHub
 
