@@ -1,6 +1,6 @@
 # Alex — Agentic Learning Equities eXplainer
 
-Multi-agent, enterprise-grade SaaS financial planning platform built for the **AI in Production** course.
+Multi-agent, enterprise-grade SaaS financial planning platform.
 
 ![Alex](assets/alex.png)
 
