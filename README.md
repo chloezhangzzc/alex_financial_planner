@@ -1,6 +1,6 @@
 # Alex — Agentic Learning Equities eXplainer
 
-Multi-agent, enterprise-grade SaaS financial planning platform.
+Multi-agent, enterprise-grade SaaS financial planning platform. Here is the link to try demo:https://alex-financial-planner-u6te.vercel.app/
 
 ![Alex](assets/alex.png)
 
