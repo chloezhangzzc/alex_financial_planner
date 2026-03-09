@@ -66,7 +66,6 @@ graph TB
 
 ### Research + knowledge ingestion (S3 Vectors pipeline)
 
-This is the core knowledge pipeline described in `guides/architecture.md`.
 
 ```mermaid
 graph TB
