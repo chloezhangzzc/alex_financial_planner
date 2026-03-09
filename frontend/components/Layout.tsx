@@ -1,168 +1,83 @@
-import { useUser, UserButton, Protect } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { ReactNode } from "react";
+import { type ReactNode } from "react";
+
 import PageTransition from "./PageTransition";
+import { useDemoData } from "../lib/demo-data";
 
 interface LayoutProps {
   children: ReactNode;
 }
 
-export default function Layout({ children }: LayoutProps) {
-  const { user } = useUser();
-  const router = useRouter();
+const navLinks = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/accounts", label: "Accounts" },
+  { href: "/advisor-team", label: "Advisor Team" },
+  { href: "/analysis", label: "Analysis" },
+];
 
-  // Helper to determine if a link is active
-  const isActive = (path: string) => router.pathname === path;
+export default function Layout({ children }: LayoutProps) {
+  const router = useRouter();
+  const { user } = useDemoData();
 
   return (
-    <Protect fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <p className="text-gray-600">Redirecting to sign in...</p>
-        </div>
-      </div>
-    }>
-      <div className="min-h-screen bg-gray-50 flex flex-col">
-        {/* Navigation */}
-        <nav className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              {/* Logo and Brand */}
-              <div className="flex items-center gap-8">
-                <Link href="/dashboard" className="flex items-center">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <nav className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-4 py-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center justify-between gap-4">
+              <Link href="/dashboard" className="flex items-center gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-ai-accent font-semibold">Client Demo</p>
                   <h1 className="text-xl font-bold text-dark">
                     Alex <span className="text-primary">AI Financial Advisor</span>
                   </h1>
-                </Link>
-
-                {/* Navigation Links */}
-                <div className="hidden md:flex items-center gap-6">
-                  <Link
-                    href="/dashboard"
-                    className={`text-sm font-medium transition-colors ${
-                      isActive("/dashboard")
-                        ? "text-primary"
-                        : "text-gray-600 hover:text-primary"
-                    }`}
-                  >
-                    Dashboard
-                  </Link>
-                  <Link
-                    href="/accounts"
-                    className={`text-sm font-medium transition-colors ${
-                      isActive("/accounts")
-                        ? "text-primary"
-                        : "text-gray-600 hover:text-primary"
-                    }`}
-                  >
-                    Accounts
-                  </Link>
-                  <Link
-                    href="/advisor-team"
-                    className={`text-sm font-medium transition-colors ${
-                      isActive("/advisor-team")
-                        ? "text-primary"
-                        : "text-gray-600 hover:text-primary"
-                    }`}
-                  >
-                    Advisor Team
-                  </Link>
-                  <Link
-                    href="/analysis"
-                    className={`text-sm font-medium transition-colors ${
-                      isActive("/analysis")
-                        ? "text-primary"
-                        : "text-gray-600 hover:text-primary"
-                    }`}
-                  >
-                    Analysis
-                  </Link>
                 </div>
-              </div>
-
-              {/* User Section */}
-              <div className="flex items-center gap-4">
-                <span className="hidden sm:inline text-sm text-gray-600">
-                  {user?.firstName || user?.emailAddresses[0]?.emailAddress}
-                </span>
-                <UserButton afterSignOutUrl="/" />
-              </div>
+              </Link>
+              <span className="inline-flex items-center rounded-full bg-purple-100 px-3 py-1 text-xs font-medium text-ai-accent">
+                No AWS / No Login
+              </span>
             </div>
 
-            {/* Mobile Navigation */}
-            <div className="md:hidden flex items-center gap-4 pb-3">
-              <Link
-                href="/dashboard"
-                className={`text-sm font-medium transition-colors ${
-                  isActive("/dashboard")
-                    ? "text-primary"
-                    : "text-gray-600 hover:text-primary"
-                }`}
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/accounts"
-                className={`text-sm font-medium transition-colors ${
-                  isActive("/accounts")
-                    ? "text-primary"
-                    : "text-gray-600 hover:text-primary"
-                }`}
-              >
-                Accounts
-              </Link>
-              <Link
-                href="/advisor-team"
-                className={`text-sm font-medium transition-colors ${
-                  isActive("/advisor-team")
-                    ? "text-primary"
-                    : "text-gray-600 hover:text-primary"
-                }`}
-              >
-                Advisor Team
-              </Link>
-              <Link
-                href="/analysis"
-                className={`text-sm font-medium transition-colors ${
-                  isActive("/analysis")
-                    ? "text-primary"
-                    : "text-gray-600 hover:text-primary"
-                }`}
-              >
-                Analysis
-              </Link>
+            <div className="flex flex-wrap items-center gap-4">
+              {navLinks.map((link) => {
+                const isActive = router.pathname === link.href;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`text-sm font-medium transition-colors ${
+                      isActive ? "text-primary" : "text-gray-600 hover:text-primary"
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-2 text-sm text-gray-700">
+              Viewing as <span className="font-semibold text-dark">{user.display_name}</span>
             </div>
           </div>
-        </nav>
+        </div>
+      </nav>
 
-        {/* Main Content */}
-        <main className="flex-1">
-          <PageTransition>
-            {children}
-          </PageTransition>
-        </main>
+      <main className="flex-1">
+        <PageTransition>{children}</PageTransition>
+      </main>
 
-        {/* Footer */}
-        <footer className="bg-white border-t mt-auto">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <p className="text-sm text-gray-700 font-medium mb-2">
-                Important Disclaimer
-              </p>
-              <p className="text-xs text-gray-600">
-                This AI-generated advice has not been vetted by a qualified financial advisor and should not be used for trading decisions.
-                For informational purposes only. Always consult with a licensed financial professional before making investment decisions.
-              </p>
-            </div>
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <p className="text-xs text-gray-500 text-center">
-                © 2025 Alex AI Financial Advisor. Powered by AI agents and built with care.
-              </p>
-            </div>
+      <footer className="bg-white border-t mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p className="text-sm text-gray-700 font-medium mb-2">Demo Disclaimer</p>
+            <p className="text-xs text-gray-600">
+              This Vercel build is a demo experience powered by seeded mock data. It showcases the product flow
+              without live AWS infrastructure, market feeds, or personalized advice.
+            </p>
           </div>
-        </footer>
-      </div>
-    </Protect>
+        </div>
+      </footer>
+    </div>
   );
 }

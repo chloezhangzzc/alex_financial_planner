@@ -172,9 +172,39 @@ sequenceDiagram
 ### Observability
 - End-to-end tracing with **LangFuse** (token usage, latency, agent spans), designed to flush traces correctly in Lambda.
 
-## Local development
+## Demo mode: local and Vercel
 
-From the `scripts/` directory:
+The frontend now includes a no-auth demo mode that runs entirely with seeded mock data. This is the fastest way to
+show the product to clients without provisioning AWS resources.
+
+### Run locally
+
+From the `frontend/` directory:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000` to explore the demo.
+
+### Deploy to Vercel
+
+- Set the Vercel project root to `week3/alex_publish/frontend`
+- Build command: `npm run build`
+- Output directory: `out`
+- No AWS or Clerk environment variables are required for the demo build
+
+### Demo limitations
+
+- Analysis jobs are simulated in-browser instead of using `SQS`, `Lambda`, and Aurora
+- Portfolio, report, chart, and retirement data are seeded mock data stored in the browser
+- This demo is meant for product storytelling, not production parity
+
+## Full stack local development
+
+If you want to run the original AWS-connected local workflow, use the helper in `scripts/`:
 
 ```bash
 cd scripts

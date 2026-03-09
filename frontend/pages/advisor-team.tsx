@@ -1,419 +1,218 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { useAuth } from '@clerk/nextjs';
-import Layout from '../components/Layout';
-import { API_URL } from '../lib/config';
-import { emitAnalysisCompleted, emitAnalysisFailed, emitAnalysisStarted } from '../lib/events';
-import Head from 'next/head';
+import Head from "next/head";
+import { useRouter } from "next/router";
+import { useEffect, useMemo, useState } from "react";
 
-interface Agent {
+import Layout from "../components/Layout";
+import { useDemoData } from "../lib/demo-data";
+
+interface AgentCard {
   icon: string;
   name: string;
   role: string;
   description: string;
   color: string;
-  bgColor: string;
 }
 
-interface Job {
-  id: string;
-  created_at: string;
-  status: string;
-  job_type: string;
-}
-
-interface AnalysisProgress {
-  stage: 'idle' | 'starting' | 'planner' | 'parallel' | 'completing' | 'complete' | 'error';
-  message: string;
-  activeAgents: string[];
-  error?: string;
-}
-
-const agents: Agent[] = [
+const agents: AgentCard[] = [
   {
-    icon: '🎯',
-    name: 'Financial Planner',
-    role: 'Orchestrator',
-    description: 'Coordinates your financial analysis',
-    color: 'text-ai-accent',
-    bgColor: 'bg-ai-accent'
+    icon: "Planner",
+    name: "Financial Planner",
+    role: "Orchestrator",
+    description: "Coordinates the overall workflow and delegates each specialist task.",
+    color: "bg-purple-100 text-ai-accent",
   },
   {
-    icon: '📊',
-    name: 'Portfolio Analyst',
-    role: 'Reporter',
-    description: 'Analyzes your holdings and performance',
-    color: 'text-primary',
-    bgColor: 'bg-primary'
+    icon: "Report",
+    name: "Portfolio Analyst",
+    role: "Reporter",
+    description: "Generates the written narrative and recommendations.",
+    color: "bg-blue-100 text-primary",
   },
   {
-    icon: '📈',
-    name: 'Chart Specialist',
-    role: 'Charter',
-    description: 'Visualizes your portfolio composition',
-    color: 'text-green-600',
-    bgColor: 'bg-green-600'
+    icon: "Charts",
+    name: "Chart Specialist",
+    role: "Charter",
+    description: "Builds the visual story from the underlying holdings.",
+    color: "bg-green-100 text-green-700",
   },
   {
-    icon: '🎯',
-    name: 'Retirement Planner',
-    role: 'Retirement',
-    description: 'Projects your retirement readiness',
-    color: 'text-accent',
-    bgColor: 'bg-accent'
-  }
+    icon: "Retire",
+    name: "Retirement Specialist",
+    role: "Retirement",
+    description: "Projects future readiness and highlights the remaining gap.",
+    color: "bg-yellow-100 text-yellow-700",
+  },
 ];
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function AdvisorTeam() {
   const router = useRouter();
-  const { getToken } = useAuth();
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
-  const [progress, setProgress] = useState<AnalysisProgress>({
-    stage: 'idle',
-    message: '',
-    activeAgents: []
-  });
-  const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
+  const { ready, jobs, startAnalysis } = useDemoData();
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [stage, setStage] = useState<"idle" | "planner" | "parallel" | "complete">("idle");
+
+  const activeJob = useMemo(() => jobs.find((job) => job.id === activeJobId), [jobs, activeJobId]);
+  const latestJobs = useMemo(() => [...jobs].sort((a, b) => b.created_at.localeCompare(a.created_at)), [jobs]);
 
   useEffect(() => {
-    fetchJobs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!activeJobId) {
+      return;
+    }
+
+    const plannerTimer = window.setTimeout(() => setStage("parallel"), 1600);
+    return () => window.clearTimeout(plannerTimer);
+  }, [activeJobId]);
 
   useEffect(() => {
-    const checkJobStatusLocal = async (jobId: string) => {
-      try {
-        const token = await getToken();
-        const response = await fetch(`${API_URL}/api/jobs/${jobId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (response.ok) {
-          const job = await response.json();
-
-          if (job.status === 'completed') {
-            setProgress({
-              stage: 'complete',
-              message: 'Analysis complete!',
-              activeAgents: []
-            });
-
-            if (pollInterval) {
-              clearInterval(pollInterval);
-              setPollInterval(null);
-            }
-
-            // Emit completion event so other components can refresh
-            emitAnalysisCompleted(jobId);
-
-            // Also refresh our own jobs list
-            fetchJobs();
-
-            setTimeout(() => {
-              router.push(`/analysis?job_id=${jobId}`);
-            }, 1500);
-          } else if (job.status === 'failed') {
-            setProgress({
-              stage: 'error',
-              message: 'Analysis failed',
-              activeAgents: [],
-              error: job.error || 'Analysis encountered an error'
-            });
-
-            if (pollInterval) {
-              clearInterval(pollInterval);
-              setPollInterval(null);
-            }
-
-            // Emit failure event
-            emitAnalysisFailed(jobId, job.error);
-
-            setIsAnalyzing(false);
-            setCurrentJobId(null);
-          }
-        }
-      } catch (error) {
-        console.error('Error checking job status:', error);
-      }
-    };
-
-    if (currentJobId && !pollInterval) {
-      const interval = setInterval(() => {
-        checkJobStatusLocal(currentJobId);
-      }, 2000);
-      setPollInterval(interval);
+    if (!activeJob) {
+      return;
     }
 
-    return () => {
-      if (pollInterval) {
-        clearInterval(pollInterval);
-        setPollInterval(null);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentJobId, pollInterval, router]);
-
-  const fetchJobs = async () => {
-    try {
-      const token = await getToken();
-      const response = await fetch(`${API_URL}/api/jobs`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setJobs(data.jobs || []);
-      }
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
+    if (activeJob.status === "completed") {
+      setStage("complete");
+      const redirectTimer = window.setTimeout(() => {
+        router.push(`/analysis?job_id=${activeJob.id}`);
+      }, 1200);
+      return () => window.clearTimeout(redirectTimer);
     }
-  };
 
-  const startAnalysis = async () => {
-    setIsAnalyzing(true);
-    setProgress({
-      stage: 'starting',
-      message: 'Initializing analysis...',
-      activeAgents: []
-    });
+    return undefined;
+  }, [activeJob, router]);
 
-    try {
-      const token = await getToken();
-      const response = await fetch(`${API_URL}/api/analyze`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          analysis_type: 'portfolio',
-          options: {}
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setCurrentJobId(data.job_id);
-
-        // Emit start event
-        emitAnalysisStarted(data.job_id);
-
-        setProgress({
-          stage: 'planner',
-          message: 'Financial Planner coordinating analysis...',
-          activeAgents: ['Financial Planner']
-        });
-
-        setTimeout(() => {
-          setProgress({
-            stage: 'parallel',
-            message: 'Agents working in parallel...',
-            activeAgents: ['Portfolio Analyst', 'Chart Specialist', 'Retirement Planner']
-          });
-        }, 5000);
-      } else {
-        throw new Error('Failed to start analysis');
-      }
-    } catch (error) {
-      console.error('Error starting analysis:', error);
-      setProgress({
-        stage: 'error',
-        message: 'Failed to start analysis',
-        activeAgents: [],
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      setIsAnalyzing(false);
-      setCurrentJobId(null);
-    }
-  };
-
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'text-green-600';
-      case 'failed':
-        return 'text-red-500';
-      case 'running':
-        return 'text-blue-600';
-      default:
-        return 'text-gray-500';
-    }
-  };
-
-  const isAgentActive = (agentName: string) => {
-    return progress.activeAgents.includes(agentName);
-  };
+  if (!ready) {
+    return (
+      <Layout>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="bg-white rounded-2xl shadow-sm p-10 text-center text-gray-600">Loading advisor team...</div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
-    <>
+    <Layout>
       <Head>
-        <title>Advisor Team - Alex AI Financial Advisor</title>
+        <title>Advisor Team | Alex Demo</title>
       </Head>
-      <Layout>
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-lg shadow px-8 py-6 mb-8">
-            <h1 className="text-3xl font-bold text-dark mb-2">Your AI Advisory Team</h1>
-            <p className="text-gray-600">
-              Meet your team of specialized AI agents that work together to provide comprehensive financial analysis.
-            </p>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {agents.map((agent) => (
-              <div
-                key={agent.name}
-                className={`bg-white rounded-lg shadow-lg p-6 relative overflow-hidden transition-all duration-300 ${
-                  isAgentActive(agent.name) ? 'ring-4 ring-ai-accent ring-opacity-50' : ''
-                }`}
-              >
-                {isAgentActive(agent.name) && (
-                  <div className="absolute inset-0 bg-gradient-to-br from-ai-accent/20 to-transparent animate-strong-pulse" />
-                )}
-                <div className="relative">
-                  <div className={`text-5xl mb-4 ${isAgentActive(agent.name) ? 'animate-strong-pulse' : ''}`}>{agent.icon}</div>
-                  <h3 className={`text-xl font-semibold mb-1 ${agent.color}`}>
-                    {agent.name}
-                  </h3>
-                  <p className="text-sm text-gray-500 mb-3">{agent.role}</p>
-                  <p className="text-gray-600 text-sm">{agent.description}</p>
-                  {isAgentActive(agent.name) && (
-                    <div className={`mt-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-white ${agent.bgColor} animate-strong-pulse`}>
-                      <span className="mr-2">●</span>
-                      Active
-                    </div>
-                  )}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <section className="bg-gradient-to-r from-primary/10 to-ai-accent/10 rounded-2xl p-8">
+          <p className="text-sm uppercase tracking-wide text-ai-accent font-semibold mb-3">AI orchestration demo</p>
+          <h1 className="text-3xl font-bold text-dark mb-3">Simulated multi-agent workflow</h1>
+          <p className="text-gray-600 max-w-3xl">
+            This page preserves the production story while running entirely in-browser. Start a fresh analysis to
+            create a new job, animate the happy path, and land on a completed report with charts and retirement output.
+          </p>
+          <button
+            onClick={() => {
+              const jobId = startAnalysis();
+              setActiveJobId(jobId);
+              setStage("planner");
+            }}
+            className="mt-6 rounded-lg bg-ai-accent px-6 py-3 text-white font-semibold hover:bg-purple-700"
+          >
+            Start New Analysis
+          </button>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-4">
+          {agents.map((agent) => {
+            const isActive =
+              stage === "planner"
+                ? agent.role === "Orchestrator"
+                : stage === "parallel"
+                  ? agent.role !== "Orchestrator"
+                  : false;
+
+            return (
+              <div key={agent.name} className="bg-white rounded-2xl shadow-sm p-6">
+                <div className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${agent.color}`}>{agent.icon}</div>
+                <h2 className="text-xl font-bold text-dark mt-4">{agent.name}</h2>
+                <p className="text-sm font-medium text-gray-500 mt-1">{agent.role}</p>
+                <p className="text-gray-600 mt-4">{agent.description}</p>
+                <div className="mt-5">
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                      isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"
+                    }`}
+                  >
+                    {isActive ? "Active now" : "Waiting"}
+                  </span>
                 </div>
               </div>
+            );
+          })}
+        </section>
+
+        <section className="bg-white rounded-2xl shadow-sm p-6">
+          <h2 className="text-2xl font-bold text-dark mb-4">Current run status</h2>
+          {activeJob ? (
+            <div className="space-y-4">
+              <div className="rounded-xl bg-gray-50 p-5">
+                <p className="text-sm text-gray-500 mb-2">Job ID</p>
+                <p className="font-semibold text-dark">{activeJob.id}</p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-xl border border-gray-100 p-4">
+                  <p className="text-sm text-gray-500 mb-2">Stage</p>
+                  <p className="font-semibold text-dark capitalize">{stage}</p>
+                </div>
+                <div className="rounded-xl border border-gray-100 p-4">
+                  <p className="text-sm text-gray-500 mb-2">Backend status</p>
+                  <p className="font-semibold text-dark capitalize">{activeJob.status}</p>
+                </div>
+                <div className="rounded-xl border border-gray-100 p-4">
+                  <p className="text-sm text-gray-500 mb-2">Created at</p>
+                  <p className="font-semibold text-dark">{formatDate(activeJob.created_at)}</p>
+                </div>
+              </div>
+              <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 text-gray-700">
+                {stage === "planner" && "The planner is loading account data and preparing each specialist task."}
+                {stage === "parallel" && "Reporter, chart maker, and retirement specialist are running in parallel."}
+                {stage === "complete" && "Analysis complete. Redirecting to the finished report."}
+              </div>
+            </div>
+          ) : (
+            <p className="text-gray-600">No active run yet. Start an analysis to show the workflow.</p>
+          )}
+        </section>
+
+        <section className="bg-white rounded-2xl shadow-sm p-6">
+          <h2 className="text-2xl font-bold text-dark mb-4">Job history</h2>
+          <div className="space-y-4">
+            {latestJobs.map((job) => (
+              <button
+                key={job.id}
+                onClick={() => router.push(`/analysis?job_id=${job.id}`)}
+                className="w-full rounded-xl border border-gray-100 p-4 text-left hover:border-primary hover:shadow-sm transition-all"
+              >
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="font-semibold text-dark">{job.job_type} analysis</p>
+                    <p className="text-sm text-gray-500 mt-1">{formatDate(job.created_at)}</p>
+                  </div>
+                  <span
+                    className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                      job.status === "completed" ? "bg-green-100 text-green-700" : "bg-blue-100 text-primary"
+                    }`}
+                  >
+                    {job.status}
+                  </span>
+                </div>
+              </button>
             ))}
           </div>
-
-          <div className="bg-white rounded-lg shadow px-8 py-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-semibold text-dark">Analysis Center</h2>
-              <button
-                onClick={startAnalysis}
-                disabled={isAnalyzing}
-                className={`px-8 py-4 rounded-lg font-semibold text-white transition-all ${
-                  isAnalyzing
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-ai-accent hover:bg-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5'
-                }`}
-              >
-                {isAnalyzing ? 'Analysis in Progress...' : 'Start New Analysis'}
-              </button>
-            </div>
-
-            {isAnalyzing && (
-              <div className="mb-8 p-6 bg-gradient-to-r from-ai-accent/10 to-primary/10 rounded-lg border border-ai-accent/20">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-dark">Analysis Progress</h3>
-                  {progress.stage !== 'error' && progress.stage !== 'complete' && (
-                    <div className="flex space-x-2">
-                      <div className="w-3 h-3 bg-ai-accent rounded-full animate-strong-pulse" />
-                      <div className="w-3 h-3 bg-ai-accent rounded-full animate-strong-pulse" style={{ animationDelay: '0.5s' }} />
-                      <div className="w-3 h-3 bg-ai-accent rounded-full animate-strong-pulse" style={{ animationDelay: '1s' }} />
-                    </div>
-                  )}
-                </div>
-
-                <p className={`text-sm mb-4 ${
-                  progress.stage === 'error' ? 'text-red-600' : 'text-gray-600'
-                }`}>
-                  {progress.message}
-                </p>
-
-                {progress.stage === 'error' && progress.error && (
-                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-800">{progress.error}</p>
-                    <button
-                      onClick={() => {
-                        setIsAnalyzing(false);
-                        setCurrentJobId(null);
-                        setProgress({ stage: 'idle', message: '', activeAgents: [] });
-                      }}
-                      className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-semibold"
-                    >
-                      Try Again
-                    </button>
-                  </div>
-                )}
-
-                {progress.stage !== 'idle' && progress.stage !== 'error' && (
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-ai-accent h-2 rounded-full transition-all duration-1000"
-                      style={{
-                        width: progress.stage === 'starting' ? '10%' :
-                               progress.stage === 'planner' ? '30%' :
-                               progress.stage === 'parallel' ? '70%' :
-                               progress.stage === 'completing' ? '90%' :
-                               '100%'
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div>
-              <h3 className="text-lg font-semibold text-dark mb-4">Previous Analyses</h3>
-              {jobs.length === 0 ? (
-                <p className="text-gray-500 italic">No previous analyses found. Start your first analysis above!</p>
-              ) : (
-                <div className="space-y-3">
-                  {jobs.slice(0, 5).map((job) => (
-                    <div
-                      key={job.id}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                    >
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">
-                          Analysis #{job.id.slice(0, 8)}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {formatDate(job.created_at)}
-                        </p>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <span className={`text-sm font-medium ${getStatusColor(job.status)}`}>
-                          {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-                        </span>
-                        {job.status === 'completed' && (
-                          <button
-                            onClick={() => router.push(`/analysis?job_id=${job.id}`)}
-                            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 text-sm font-semibold"
-                          >
-                            View
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        </section>
       </div>
-      </Layout>
-    </>
+    </Layout>
   );
 }
